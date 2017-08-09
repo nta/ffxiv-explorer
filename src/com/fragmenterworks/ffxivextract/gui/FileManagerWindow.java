@@ -48,6 +48,7 @@ import javax.swing.filechooser.FileFilter;
 
 import com.fragmenterworks.ffxivextract.Constants;
 import com.fragmenterworks.ffxivextract.Strings;
+import com.fragmenterworks.ffxivextract.helpers.*;
 import com.fragmenterworks.ffxivextract.storage.HashDatabase;
 
 import com.fragmenterworks.ffxivextract.gui.SearchWindow.ISearchComplete;
@@ -65,11 +66,7 @@ import com.fragmenterworks.ffxivextract.gui.components.Shader_View;
 import com.fragmenterworks.ffxivextract.gui.components.Sound_View;
 import com.fragmenterworks.ffxivextract.gui.modelviewer.ModelViewerWindow;
 import com.fragmenterworks.ffxivextract.gui.outfitter.OutfitterWindow;
-import com.fragmenterworks.ffxivextract.helpers.HashFinding_Utils;
-import com.fragmenterworks.ffxivextract.helpers.HavokNative;
-import com.fragmenterworks.ffxivextract.helpers.LERandomAccessFile;
 import ca.fraggergames.ffxivextract.helpers.LuaDec;
-import com.fragmenterworks.ffxivextract.helpers.WavefrontObjectWriter;
 import com.fragmenterworks.ffxivextract.models.AVFX_File;
 import com.fragmenterworks.ffxivextract.models.CMP_File;
 import com.fragmenterworks.ffxivextract.models.EXDF_File;
@@ -256,6 +253,7 @@ public class FileManagerWindow extends JFrame implements TreeSelectionListener, 
 		//Init Luadec
 		luadec = LuaDec.initLuaDec();
 		HavokNative.initHavokNativ();
+		HavokExportNative.initExportNative();
 	}	
 
 	protected void openFile(File selectedFile) {
@@ -876,7 +874,7 @@ public class FileManagerWindow extends JFrame implements TreeSelectionListener, 
 			
 			@Override
 			public boolean accept(File f) {
-				return f.getName().endsWith(".csv") || f.getName().endsWith(".ogg") || f.getName().endsWith(".wav") ||f.getName().endsWith(".png") || f.getName().endsWith(".hkx") || f.getName().endsWith(".obj") || f.isDirectory();
+				return f.getName().endsWith(".csv") || f.getName().endsWith(".ogg") || f.getName().endsWith(".wav") ||f.getName().endsWith(".png") || f.getName().endsWith(".hkx") || f.getName().endsWith(".obj") || f.getName().endsWith(".smd") || f.isDirectory();
 			}				
 		};
 		fileChooser.addChoosableFileFilter(filter);
@@ -920,7 +918,8 @@ public class FileManagerWindow extends JFrame implements TreeSelectionListener, 
 			return ".shpk";
 		else if (contentType == 3)
 		{
-			return ".obj";
+			//return ".obj";
+			return ".smd";
 		}
 		else if (contentType == 4)
 		{
@@ -1080,7 +1079,7 @@ public class FileManagerWindow extends JFrame implements TreeSelectionListener, 
 						
 						continue;
 					}
-					else if (extension.equals(".obj") && doConvert)
+					else if (extension.equals(".smd") && doConvert)
 					{						
 						Model model = new Model(folderName + "/" + fileName, currentIndexFile, data);
 						
@@ -1097,7 +1096,7 @@ public class FileManagerWindow extends JFrame implements TreeSelectionListener, 
 						File mkDirPath = new File(path);
 						mkDirPath.getParentFile().mkdirs();																															
 									
-						WavefrontObjectWriter.writeObj(path, model);
+						StudioModelWriter.writeSmd(path, model);
 						
 						continue;
 					}

@@ -2,14 +2,19 @@ package com.fragmenterworks.ffxivextract.models;
 
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Scanner;
 
+import com.fragmenterworks.ffxivextract.helpers.HavokExportNative;
 import com.fragmenterworks.ffxivextract.helpers.ImageDecoding.ImageDecodingException;
 import com.fragmenterworks.ffxivextract.helpers.GLHelper;
 import com.fragmenterworks.ffxivextract.helpers.HavokNative;
@@ -39,7 +44,9 @@ public class Model {
 	private DX9VertexElement vertexElements[][];
 	private String stringArray[];
 	private short numMeshes, numAtrStrings, numBoneStrings, numMaterialStrings, numShpStrings, numParts;
-	private MeshPart[] meshPartTable;		
+	private MeshPart[] meshPartTable;
+
+	private HashMap<String, Integer> boneMapping;
 	
 	//From Rogueadyn's Code
 	private int unknownCount1;
@@ -79,6 +86,8 @@ public class Model {
 	
 	private int imcPartsKey = 0;
 	private int currentVariant = 1;
+
+	private String boneData;
 	
 	public Model(byte[] data)
 	{
@@ -86,7 +95,9 @@ public class Model {
 	}
 	
 	public Model(String modelPath, SqPack_IndexFile index, byte[] data) throws BufferOverflowException, BufferUnderflowException
-	{						
+	{
+		this.boneMapping = new HashMap<>();
+
 		this.modelPath = modelPath;
 		this.currentIndex = index; 
 		
@@ -308,11 +319,12 @@ public class Model {
         }
         
         //Skeletons and Animations
-        if (!Constants.HAVOK_ENABLED)
-        { 
+/*        if (!Constants.HAVOK_ENABLED)
+        {
         	numBones = -1;
         	return;
-        }               
+        }*/
+
         
         if (modelPath != null)
         {
@@ -331,8 +343,14 @@ public class Model {
         	}  
         	else if (modelPathSplit[1].equals("equipment"))
         	{
-        		skeletonPath = "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb";
-        		animationPath = "chara/human/c0101/animation/a0001/bt_2ax_emp/ws/bt_2ax_emp/ws_s03.pap";
+        		if (modelPathSplit[3].equals("model")) {
+        			String chara = modelPathSplit[4].substring(0, 5);
+
+					skeletonPath = "chara/human/" + chara + "/skeleton/base/b0001/skl_" + chara + "b0001.sklb";
+				} else {
+					skeletonPath = "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb";
+				}
+				animationPath = "chara/human/c0101/animation/a0001/bt_2ax_emp/ws/bt_2ax_emp/ws_s03.pap";
         		//animationPath = "chara/human/c1101/animation/a0001/bt_common/emote/panic.pap";
         	}
         	        		       
@@ -341,6 +359,9 @@ public class Model {
         		skeletonPath = "!/!";
         		animationPath = "!/!";
         	}
+
+			System.out.println("Adding Entry: " + skeletonPath);
+			HashDatabase.addPathToDB(skeletonPath, "040000");
         	
         	
 	        skelFile = null;
@@ -364,18 +385,69 @@ public class Model {
 				System.out.println("Anim Not Found");
 			}		
 			
-			if (animFile != null && skelFile != null){
+			if (skelFile != null){
 		        ByteBuffer skelBuffer = ByteBuffer.allocateDirect(skelFile.getHavokData().length);
 		        skelBuffer.order(ByteOrder.nativeOrder());
 		        skelBuffer.put(skelFile.getHavokData());        
-		        ByteBuffer animBuffer = ByteBuffer.allocateDirect(animFile.getHavokData().length);
-		        skelBuffer.order(ByteOrder.nativeOrder());
-		        animBuffer.put(animFile.getHavokData());
 		        skelBuffer.position(0);
-		        animBuffer.position(0);							        
+
+				try {
+					File file = File.createTempFile("exp", ".hkx");
+					file.deleteOnExit();
+
+					FileChannel fos = new FileOutputStream(file).getChannel();
+					fos.write(skelBuffer);
+					fos.close();
+
+					File outFile = File.createTempFile("exp", ".txt");
+					String tempName = outFile.getAbsolutePath();
+					outFile.delete();
+
+					new ProcessBuilder("havok2fbx.exe",
+							"-hk_skeleton", file.getAbsolutePath(),
+							"-out", tempName).start().waitFor();
+
+					outFile = new File(tempName);
+					outFile.deleteOnExit();
+					InputStream is = new FileInputStream(outFile);
+					Scanner scanner = new Scanner(is);
+
+					do {
+
+					} while (!scanner.nextLine().equalsIgnoreCase("nodes"));
+
+					String line = "";
+
+					do {
+						line = scanner.nextLine();
+
+						String[] parts = line.split(" ");
+
+						if (parts.length >= 3) {
+							String n = parts[1].substring(1, parts[1].length() - 1);
+							int id = Integer.parseInt(parts[0]);
+
+							boneMapping.put(n, id);
+						}
+					} while (!line.equalsIgnoreCase("end"));
+
+					is.close();
+
+					boneData = new String(Files.readAllBytes(Paths.get(tempName)));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+		        /*try {
+					boneData = HavokExportNative.returnExportString(skelBuffer);
+				} catch (UnsatisfiedLinkError e) {
+		        	numBones = -1;
+		        	e.printStackTrace();
+		        	return;
+				}*/
 		        
 		        //Incase Havok doesn't work
-		        try{		        	
+		        /*try{
 		        	HavokNative.startHavok();
 		        }
 		        catch (UnsatisfiedLinkError e)
@@ -400,13 +472,13 @@ public class Model {
 				else{
 					numBones = -1;
 					HavokNative.endHavok();
-				}
+				}*/
 			}
 			else
 			{
 				numBones = -1;
 				try{
-					HavokNative.endHavok();
+					//HavokNative.endHavok();
 				}
 				 catch (UnsatisfiedLinkError e)
 			        { 
@@ -561,12 +633,14 @@ public class Model {
 		//If there was a body material, grab it HACK HERE
 		if (bodyMaterialSpot != -1)
 		{	
-			String s = stringArray[numAtrStrings+numBoneStrings+bodyMaterialSpot].substring(1);
-			String s1 = s.replace("mt_c", "").substring(0, 9);					
-			int chara = Integer.parseInt(s1.substring(0, 4));
-			int body = Integer.parseInt(s1.substring(5, 9));
-			materialFolderPath = String.format("chara/human/c%04d/obj/body/b%04d/material",chara,body);
-			
+			String s = stringArray[numAtrStrings+numBoneStrings+bodyMaterialSpot];
+
+			if (!s.startsWith("chara")) {
+				String s1 = s.substring(1).replace("mt_c", "").substring(0, 9);
+				int chara = Integer.parseInt(s1.substring(0, 4));
+				int body = Integer.parseInt(s1.substring(5, 9));
+				materialFolderPath = String.format("chara/human/c%04d/obj/body/b%04d/material", chara, body);
+			}
 			System.out.println("Adding Entry: " + materialFolderPath);
 			HashDatabase.addPathToDB(materialFolderPath, "040000");
 			
@@ -916,6 +990,10 @@ public class Model {
 	public DX9VertexElement[] getDX9Struct(int lodLevel, int i) {
 		return vertexElements[lodModels[lodLevel].meshList[i].getVertexElementIndex()];
 	}
+
+	public String getBoneData() {
+		return this.boneData;
+	}
 	
 	public int getNumAnimations()
 	{
@@ -971,6 +1049,25 @@ public class Model {
 			return HavokNative.getNumAnimationFrames(animationNumber);
 		else
 			return -1;
+	}
+
+	public String[] getBoneStrings() {
+		return this.boneStrings;
+	}
+
+	public int mapBone(int bone, Mesh mesh) {
+		String boneName = this.boneStrings[boneLists[mesh.boneListIndex].boneList[bone]];
+
+		if (this.boneMapping == null || this.boneMapping.size() == 0) {
+			return 0;
+		}
+
+		try {
+			return this.boneMapping.get(boneName);
+		} catch (RuntimeException e) {
+			e.printStackTrace();
+			return 0;
+		}
 	}
 
 	private long getMaskFromAtrName(String attribute)

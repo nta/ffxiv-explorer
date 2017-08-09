@@ -1,0 +1,14 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="ffxiv-explorer:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/ffxiv_explorer_jar</output-path>
+    <root id="archive" name="ffxiv-explorer.jar">
+      <element id="module-output" name="ffxiv-explorer" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/libs/jogl-all.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/libs/gson-2.8.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/libs/gluegen.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/libs/jogl-all-natives-windows-amd64.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/libs/sqlite-jdbc-3.19.3.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/libs/gluegen-rt-natives-windows-amd64.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

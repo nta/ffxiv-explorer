@@ -20,7 +20,7 @@ public class WavefrontObjectWriter {
 			path=path.replace(".mdl", ".obj");
 		else if (!path.contains(".obj"))
 			path+=".obj";
-		
+
 		for (int i = 0; i < model.getNumMesh(0); i++)
 		{
 			BufferedWriter out = new BufferedWriter(new FileWriter(path.replace(".obj", "_"+i+".obj")));

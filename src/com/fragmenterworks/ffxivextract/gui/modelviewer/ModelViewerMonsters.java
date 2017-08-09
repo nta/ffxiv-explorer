@@ -93,6 +93,10 @@ public class ModelViewerMonsters extends JPanel {
 		
 		this.parent = parent;
 		this.modelIndexFile = modelIndex;
+
+		for (int i = 0; i < 600; i++) {
+			HashDatabase.addPathToDB(String.format("chara/monster/m%04d/obj/body/b%04d/model/m%04db%04d.mdl", i, 1, i, 1), "040000");
+		}
 		
 		setLayout(new BorderLayout(0, 0));
 		
